@@ -1,16 +1,16 @@
-// regex 
-// two groups: incl HPD or DOB
+// Letters to DOB/HPD
 
 const fs = require('fs');
+
 const REGEX_LEGACY = /^(DOB|HPD)([A-Z0-9]{6,7})[A-Z]{3}\.pdf$/;
 const REGEX_NEW = /^[A-Z0-9]{6,7}_(DOB|HPD)\.pdf$/;
 const TARGET_DIR = 'renamedFiles';
 const fileNames = fs.readdirSync('.');
 fs.mkdirSync(`./${TARGET_DIR}`);
 
-let badFiles = [];
+const badFiles = [];
 
-fileNames.forEach(fileName => {
+fileNames.forEach((fileName) => {
   const matchesNew = fileName.match(REGEX_NEW);
   const matchesLegacy = fileName.match(REGEX_LEGACY);
 
