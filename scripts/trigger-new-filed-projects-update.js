@@ -16,7 +16,7 @@ slack.send(`Initializing newly filed project update task with ${interval_min} in
 const triggerNewFiledProjectsUpdate = () => {
   request({
     method: 'GET',
-    uri: 'https://zap-api-staging.planninglabs.nyc/projects/new-filed',//'localhost:3000/new-filed',
+    uri: 'localhost:3000/projects/new-filed',//'localhost:3000/new-filed',
     timeout: 5 * 60 * 1000, // 5 minutes -- this can be slow, might get slower, don't want to have to come change this
     simple: false,
     resolveWithFullResponse:true
