@@ -9,6 +9,7 @@ router.use('/xml', require('./projects_XML'));
 router.use('/xml/:id', require('./project_XML'));
 router.use('/demoUpdate/:id', require('./demoUpdate'));
 router.use('/demoGet/:id', require('./demoGet'));
+router.use('/demoUpload', require('./demoUpload'));
 
 // subordinate routes
 router.use('/feedback', require('./feedback'));
