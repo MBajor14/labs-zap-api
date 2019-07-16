@@ -8,7 +8,7 @@ const express = require('express');
 const logger = require('morgan');
 const NodeCache = require('node-cache');
 const cors_config = require('./middleware/cors');
-const fileUpload = require('express-fileupload');
+const file_upload = require('express-fileupload');
 
 
 // instantiate express app
@@ -39,7 +39,7 @@ app.use(cors_config());
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(fileUpload());
+app.use(file_upload());
 
 // import routes
 app.use('/projects.:filetype', require('./routes/projects/download'));

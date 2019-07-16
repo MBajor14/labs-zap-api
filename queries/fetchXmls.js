@@ -3,7 +3,6 @@
 const crmWebAPI = require('../utils/crmWebAPI');
 
 module.exports = {
-
     fetchProjects: (queryParams, page=1, itemsPerPage=30) => {
         const {
             // filters
@@ -180,7 +179,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchProject: (projectName) => {
       const general_public = '717170003';
 
@@ -221,7 +219,6 @@ module.exports = {
           `</fetch>`
         ].join('')
     },
-
     fetchBBL: (projectID) => [
         `<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">`,
             `<entity name="dcp_projectbbl">`,
@@ -234,7 +231,6 @@ module.exports = {
             `</entity>`,
         `</fetch>`,
     ].join(''),
-
     fetchBBLForProjects: (projectIDs) => {
         let projectFilter = '';
         projectIDs.forEach( projectID => projectFilter += `<value>{${projectID}}</value>`);
@@ -253,7 +249,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchAction: (projectID) => {
         const mistake = '717170003';
 
@@ -277,7 +272,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchActionForProjects: (projectIDs) => {
         const mistake = '717170003';
 
@@ -303,7 +297,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchMilestone: (projectID) => {
         const overridden = '717170001';
 
@@ -333,7 +326,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchMilestoneForProjects: (projectIDs) => {
         const overridden = '717170001';
         let projectFilter = '';
@@ -378,7 +370,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchKeywords: (projectID) => {
         const active = '0';
 
@@ -395,7 +386,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchApplicantTeam: (projectID) => [
     `<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">`,
         `<entity name="dcp_projectapplicant">`,
@@ -409,7 +399,6 @@ module.exports = {
         `</entity>`,
     `</fetch>`
     ].join(''),
-
     fetchApplicantTeamForProjects: (projectIDs) => {
         let projectFilter = '';
         projectIDs.forEach( projectID => projectFilter += `<value>{${projectID}}</value>`);
@@ -432,7 +421,6 @@ module.exports = {
             `</fetch>`
         ].join('')
     },
-
     fetchAddress: (projectID) => [
         `<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">`,
             `<entity name="dcp_projectaddress">`,
@@ -447,7 +435,24 @@ module.exports = {
                 `</filter>`,
             `</entity>`,
         `</fetch>`
-    ].join('')
+    ].join(''),
+    fetchDocumentLocation: regardingObjectID => {
+        regardingObjectID = '76A94870-AF41-E811-812A-1458D04D2538';
+
+        return [
+            `<fetch mapping="logical" distinct="false">`,
+                `<entity name="sharepointdocumentlocation">`,
+                    `<attribute name="name"/>`,
+                    `<filter type="and">`,
+                        `<condition attribute="regardingobjectid" operator="eq" value="{${regardingObjectID}}"/>`,
+                        `<condition attribute="regardingobjecttypecode" operator="eq" value="10126"/>`,
+                        `<condition attribute="locationtype" operator="eq" value="0"/>`,
+                        `<condition attribute="servicetype" operator="eq" value="0"/>`,
+                    `</filter>`,
+                `</entity>`,
+            `</fetch>`
+        ].join('');
+    }
 };
 
 const escapeFetchParam = str => encodeURIComponent(crmWebAPI.escape(str));
