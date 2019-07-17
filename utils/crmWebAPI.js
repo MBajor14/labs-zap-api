@@ -146,8 +146,6 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
         });
     });
 };
-
-
 const findDocumentLocation = async entityID => {
   const fetchDocumentLocationXML = [
     `<fetch mapping="logical" distinct="true">`,
@@ -172,7 +170,6 @@ const findDocumentLocation = async entityID => {
       }
     })
 };
-
 const sendFileUploadRequest = async (entityName, entityID, fileName, base64File, overwriteExisting) => {
   const docLocationID = await findDocumentLocation(entityID);
 
@@ -234,9 +231,6 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
         });
     });
 };
-
-
-
 const sendPatchRequest = async function (query, data, headers) {
     //  get token
     const JWToken = await ADALService.acquireToken();
@@ -257,25 +251,11 @@ const sendPatchRequest = async function (query, data, headers) {
     };
 
     return new Promise((resolve, reject) => {
-        request.patch(options, (error, response, body) => {
-            if(error){
-                const parseError = jsonText => {
-                    const json_string = jsonText.toString('utf-8');
-                    var result = JSON.parse(json_string, dateReviver);
-                    var err = parseErrorMessage(result);
-                    reject(err);
-                };
-                if (encoding && encoding.indexOf('gzip') >= 0) {
-                    zlib.gunzip(body, (err, dezipped) => {
-                        parseError(dezipped);
-                    });
-                }
-                else{
-                    parseError(body);
-
-                }
-            }
-            else resolve();
+        request.patch(options, (error, response) => {
+          if(response.statusCode !== 204){
+            reject(response.statusMessage);
+          }
+          resolve();
         })
     });
 };

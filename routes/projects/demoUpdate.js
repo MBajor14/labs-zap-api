@@ -9,9 +9,17 @@ router.post('/', async (req, res) => {
     let { params, body } = req;
     const { id } = params;
 
-    crmWebAPI.update('dcp_projectmilestones', id, body);
-
-    res.send(`Entity Updated id: ${id}`);
+    try{
+        await crmWebAPI.update('dcp_projectmilestones', id, body);
+        res.send({
+            success: true
+        });
+    }catch(error){
+        res.status(404).send({
+            success: false,
+            message: error
+        })
+    }
 });
 
 module.exports = router;
