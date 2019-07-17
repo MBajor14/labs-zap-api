@@ -435,24 +435,7 @@ module.exports = {
                 `</filter>`,
             `</entity>`,
         `</fetch>`
-    ].join(''),
-    fetchDocumentLocation: regardingObjectID => {
-        regardingObjectID = '76A94870-AF41-E811-812A-1458D04D2538';
-
-        return [
-            `<fetch mapping="logical" distinct="false">`,
-                `<entity name="sharepointdocumentlocation">`,
-                    `<attribute name="name"/>`,
-                    `<filter type="and">`,
-                        `<condition attribute="regardingobjectid" operator="eq" value="{${regardingObjectID}}"/>`,
-                        `<condition attribute="regardingobjecttypecode" operator="eq" value="10126"/>`,
-                        `<condition attribute="locationtype" operator="eq" value="0"/>`,
-                        `<condition attribute="servicetype" operator="eq" value="0"/>`,
-                    `</filter>`,
-                `</entity>`,
-            `</fetch>`
-        ].join('');
-    }
+    ].join('')
 };
 
 const escapeFetchParam = str => encodeURIComponent(crmWebAPI.escape(str));

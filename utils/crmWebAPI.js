@@ -147,11 +147,37 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
     });
 };
 
+
+const findDocumentLocation = async entityID => {
+  const fetchDocumentLocationXML = [
+    `<fetch mapping="logical" distinct="true">`,
+    `<entity name="sharepointdocumentlocation">`,
+    `<attribute name="sharepointdocumentlocationid"/>`,
+    `<filter type="and">`,
+    `<condition attribute="regardingobjectid" operator="eq" value="{${entityID}}"/>`,
+    `<condition attribute="locationtype" operator="eq" value="0"/>`,
+    `<condition attribute="servicetype" operator="eq" value="0"/>`,
+    `</filter>`,
+    `</entity>`,
+    `</fetch>`
+  ].join('');
+
+  crmWebAPI.get(`sharepointdocumentlocations?fetchXml=${fetchDocumentLocationXML}`)
+    .then(response => {
+      const documentLocations = response.value;
+      if (documentLocations.length > 0) {
+        return documentLocations[0].sharepointdocumentlocationid;
+      } else {
+        return null;
+      }
+    })
+};
+
 const sendFileUploadRequest = async (entityName, entityID, fileName, base64File, overwriteExisting) => {
   const docLocationID = await findDocumentLocation(entityID);
 
   if(!docLocationID){
-    //create doc location id
+    console.log("LocationID not found");
   }
 
   //  get token
@@ -173,14 +199,13 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
         "Content": base64File,
         "Entity": {
           "@odata.type": "Microsoft.Dynamics.CRM.sharepointdocument",
-          "locationid": docLocationID,
+          "locationid": docLocationID,  // when undefined, creates new in CRM
           "title": fileName
         },
         "OverwriteExisting": overwriteExisting,
         "ParentEntityReference": entityRef,
         "FolderPath": ""
       })
-      // encoding: null,
   };
 
     return new Promise((resolve, reject) => {
@@ -211,30 +236,6 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
 };
 
 
-const findDocumentLocation = async entityID => {
-  const fetchDocumentLocationXML = [
-    `<fetch mapping="logical" distinct="true" top="1">`,
-      `<entity name="sharepointdocumentlocation">`,
-        `<attribute name="sharepointdocumentlocationid"/>`,
-        `<filter type="and">`,
-          `<condition attribute="regardingobjectid" operator="eq" value="{${entityID}}"/>`,
-          `<condition attribute="locationtype" operator="eq" value="0"/>`,
-          `<condition attribute="servicetype" operator="eq" value="0"/>`,
-        `</filter>`,
-      `</entity>`,
-    `</fetch>`
-  ].join('');
-
-  crmWebAPI.get(`sharepointdocumentlocations?fetchXml=${fetchDocumentLocationXML}`)
-    .then(response => {
-      const documentLocations = response.value;
-      if (documentLocations.length > 0) {
-        return documentLocations[0].sharepointdocumentlocationid;
-      } else {
-        return null;
-      }
-    })
-};
 
 const sendPatchRequest = async function (query, data, headers) {
     //  get token

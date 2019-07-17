@@ -35,6 +35,8 @@ router.get('/', async (req, res) => {
     const project = await crmWebAPI.get(`dcp_projects?fetchXml=${fetchXmls.fetchProject(id)}`, 1)
         .then( project => projectPostFetchEdits(project["value"][0]) );
 
+    const fetchProjectXML = fetchXmls.fetchProject(id);
+
     const bbls = getEntity(project, 'bbl');
     const actions = getEntity(project, 'action');
     const milestones = getEntity(project, 'milestone');

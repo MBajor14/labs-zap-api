@@ -11,7 +11,7 @@ router.post('/', async (req, res) => {
 
     crmWebAPI.update('dcp_projectmilestones', id, body);
 
-    res.send(`patch route hit: ${id}`);
+    res.send(`Entity Updated id: ${id}`);
 });
 
 module.exports = router;
