@@ -67,7 +67,6 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
     const options = {
         url: `${webApiUrl() + query}`,
         headers: {
-            'X-some-headers': 'Some headers',
             'Accept-Encoding': 'gzip, deflate',
             'Content-Type': 'application/json; charset=utf-8',
             Authorization: `Bearer ${JWToken}`,
@@ -75,6 +74,7 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
             'OData-Version': '4.0',
             Accept: 'application/json',
             Prefer: 'odata.include-annotations="*"',
+            ...headers
         },
         encoding: null,
     };
@@ -123,7 +123,7 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
                     var result = JSON.parse(json_string, dateReviver);
                     var err = parseErrorMessage(result);
                     if (err == "Object reference not set to an instance of an object.") {
-                        sendGetRequest(query, maxPageSize, headers)
+                        sendGetRequest(query, maxPageSize, options)
                           .then(
                             resolve, reject
                           );
@@ -170,7 +170,7 @@ const findDocumentLocation = async entityID => {
       }
     })
 };
-const sendFileUploadRequest = async (entityName, entityID, fileName, base64File, overwriteExisting) => {
+const sendFileUploadRequest = async (entityName, entityID, fileName, base64File, overwriteExisting, headers) => {
   const docLocationID = await findDocumentLocation(entityID);
 
   if(!docLocationID){
@@ -190,7 +190,7 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
       headers: {
           'Content-Type': 'application/json; charset=utf-8',
           Authorization: `Bearer ${JWToken}`,
-          MSCRMCallerID: 'A5C18075-399F-E911-A99A-001DD8308EF1'//hardcode
+          ...headers
       },
       body: JSON.stringify({
         "Content": base64File,
@@ -207,26 +207,21 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
 
     return new Promise((resolve, reject) => {
         request.post(options, (error, response, body) => {
-          if(error){
-            reject(error.message);
+          if(body){
+            try{
+              const jsonBody = JSON.parse(body);
+              if(jsonBody.error){
+                reject(parseErrorMessage(jsonBody));
+              }
+              else{
+                resolve();
+              }
+            }catch(error){
+              reject(body);
+            }
           }
           else{
-            if(body){
-              try{
-                const jsonBody = JSON.parse(body);
-                if(jsonBody.error){
-                  reject(parseErrorMessage(jsonBody));
-                }
-                else{
-                  resolve();
-                }
-              }catch(error){
-                reject(body);
-              }
-            }
-            else{
-              resolve();
-            }
+            resolve();
           }
         });
     });
@@ -237,7 +232,6 @@ const sendPatchRequest = async function (query, data, headers) {
     const options = {
         url: `${webApiUrl() + query }`,
         headers: {
-            'X-some-headers': 'Some headers',
             'Accept-Encoding': 'gzip, deflate',
             'Content-Type': 'application/json; charset=utf-8',
             Authorization: `Bearer ${JWToken}`,
@@ -245,17 +239,33 @@ const sendPatchRequest = async function (query, data, headers) {
             'OData-Version': '4.0',
             Accept: 'application/json',
             Prefer: 'odata.include-annotations="*"',
+            ...headers
         },
         body: JSON.stringify(data),
         encoding: null,
     };
 
     return new Promise((resolve, reject) => {
-        request.patch(options, (error, response) => {
-          if(response.statusCode !== 204){
-            reject(response.statusMessage);
+        request.patch(options, (error, response, body) => {
+          const encoding = response.headers['content-encoding'];
+          if(error || response.statusCode != 204){
+            const parseError = jsonText => {
+              const json_string = jsonText.toString('utf-8');
+              var result = JSON.parse(json_string, dateReviver);
+              var err = parseErrorMessage(result);
+              reject(err);
+            };
+            if (encoding && encoding.indexOf('gzip') >= 0) {
+              zlib.gunzip(body, (err, dezipped) => {
+                parseError(dezipped);
+              });
+            }
+            else{
+              parseError(body);
+
+            }
           }
-          resolve();
+          else resolve();
         })
     });
 };
@@ -265,7 +275,6 @@ const sendPostRequest = async function (query, data, headers) {
     const options = {
         url: `${webApiUrl() + query }`,
         headers: {
-            'X-some-headers': 'Some headers',
             'Accept-Encoding': 'gzip, deflate',
             'Content-Type': 'application/json; charset=utf-8',
             Authorization: `Bearer ${JWToken}`,
@@ -273,6 +282,7 @@ const sendPostRequest = async function (query, data, headers) {
             'OData-Version': '4.0',
             Accept: 'application/json',
             Prefer: 'odata.include-annotations="*"',
+            ...headers
         },
         body: JSON.stringify(data),
         encoding: null,
@@ -280,7 +290,8 @@ const sendPostRequest = async function (query, data, headers) {
 
     return new Promise((resolve, reject) => {
         request.post(options, (error, response, body) => {
-            if(error){
+            const encoding = response.headers['content-encoding'];
+            if(error || (response.status != 200 && response.status != 204 && response.status != 1223)){
                 const parseError = jsonText => {
                     // Bug: sometimes CRM returns 'object reference' error
                     // Fix: if we retry error will not show again
@@ -341,7 +352,6 @@ const JWToken = await ADALService.acquireToken();
 const options = {
     url: `${webApiUrl() + query }`,
     headers: {
-        'X-some-headers': 'Some headers',
         'Accept-Encoding': 'gzip, deflate',
         'Content-Type': 'application/json; charset=utf-8',
         Authorization: `Bearer ${JWToken}`,
@@ -349,13 +359,15 @@ const options = {
         'OData-Version': '4.0',
         Accept: 'application/json',
         Prefer: 'odata.include-annotations="*"',
+      ...headers
     },
     encoding: null,
 };
 
 return new Promise((resolve, reject) => {
     request.patch(options, (error, response, body) => {
-        if(error){
+        const encoding = response.headers['content-encoding'];
+        if(error || (response.status != 204 && response.status != 1223)){
             const parseError = jsonText => {
                 const json_string = jsonText.toString('utf-8');
                 const result = JSON.parse(json_string, dateReviver);
