@@ -15,7 +15,7 @@ router.post('/', async (req, res) => {
         const file = req.files.file;
         const projectID = req.body.projectID;
         const projectName = req.body.projectName;
-        const entityName = req.body.entityName ? req.body.entityName : 'dcp_project';
+        const entityName = req.body.entityName;
         const headers ={
             MSCRMCallerID: 'A5C18075-399F-E911-A99A-001DD8308EF1', //impersonation
         };

@@ -362,7 +362,7 @@ const getParentSiteLocation = async () => {
       }
     })
 };
-const createDocumentLocation = async (documentLocationParams, headers) => {
+const createDocumentLocation = async (locationName, absURL, folderName, sharepointSiteID, parentEntityReference, headers) => {
 
   //  get token
   const JWToken = await ADALService.acquireToken();
@@ -375,19 +375,15 @@ const createDocumentLocation = async (documentLocationParams, headers) => {
       ...headers
     },
     body: JSON.stringify({
-      "LocationName": "",
-      "AbsUrl": "",
-      "RelativePath": "",
+      "LocationName": locationName,
+      "AbsUrl": absURL,
+      "RelativePath": folderName,
       "ParentType": "sharepointsite",
-      "ParentId": "",
+      "ParentId": sharepointSiteID,
       "IsAddOrEditMode": true,
       "IsCreateFolder": true,
       "DocumentId": "",
-      "ParentEntityReference": {
-        "@odata.type": "",
-        "dcp_projectid": ""
-      },
-      ...documentLocationParams //  includes values for empty strings in body
+      "ParentEntityReference": parentEntityReference,
     })
   };
 
@@ -427,14 +423,7 @@ const sendFileUploadRequest = async (entityName, entityID, folderName, fileName,
     };
     entityRef[entityName+"id"] = entityID;
 
-    const documentLocationDetails = {
-      "LocationName": parentSiteLocation['name'],
-      "AbsUrl": absoluteURL,
-      "RelativePath": folderName,
-      "ParentId": parentSiteLocation['sharepointsiteid'],
-      "ParentEntityReference": entityRef,
-    };
-    docLocationID = await createDocumentLocation(documentLocationDetails, headers);
+    docLocationID = await createDocumentLocation(parentSiteLocation['name'], absoluteURL, folderName, parentSiteLocation['sharepointsiteid'], entityRef, headers);
   }
 
   //  get token
