@@ -146,6 +146,169 @@ const sendGetRequest = async (query, maxPageSize, headers) => {
         });
     });
 };
+const sendPatchRequest = async function (query, data, headers) {
+  //  get token
+  const JWToken = await ADALService.acquireToken();
+  const options = {
+    url: `${webApiUrl() + query }`,
+    headers: {
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${JWToken}`,
+      'OData-MaxVersion': '4.0',
+      'OData-Version': '4.0',
+      Accept: 'application/json',
+      Prefer: 'odata.include-annotations="*"',
+      ...headers
+    },
+    body: JSON.stringify(data),
+    encoding: null,
+  };
+
+  return new Promise((resolve, reject) => {
+    request.patch(options, (error, response, body) => {
+      const encoding = response.headers['content-encoding'];
+      if(error || response.statusCode != 204){
+        const parseError = jsonText => {
+          const json_string = jsonText.toString('utf-8');
+          var result = JSON.parse(json_string, dateReviver);
+          var err = parseErrorMessage(result);
+          reject(err);
+        };
+        if (encoding && encoding.indexOf('gzip') >= 0) {
+          zlib.gunzip(body, (err, dezipped) => {
+            parseError(dezipped);
+          });
+        }
+        else{
+          parseError(body);
+
+        }
+      }
+      else resolve();
+    })
+  });
+};
+const sendPostRequest = async function (query, data, headers) {
+  //  get token
+  const JWToken = await ADALService.acquireToken();
+  const options = {
+    url: `${webApiUrl() + query }`,
+    headers: {
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${JWToken}`,
+      'OData-MaxVersion': '4.0',
+      'OData-Version': '4.0',
+      Accept: 'application/json',
+      Prefer: 'odata.include-annotations="*"',
+      ...headers
+    },
+    body: JSON.stringify(data),
+    encoding: null,
+  };
+
+  return new Promise((resolve, reject) => {
+    request.post(options, (error, response, body) => {
+      const encoding = response.headers['content-encoding'];
+      if(error || (response.status != 200 && response.status != 204 && response.status != 1223)){
+        const parseError = jsonText => {
+          // Bug: sometimes CRM returns 'object reference' error
+          // Fix: if we retry error will not show again
+          const json_string = jsonText.toString('utf-8');
+          var result = JSON.parse(json_string, dateReviver);
+          var err = parseErrorMessage(result);
+          reject(err);
+        };
+        if (encoding && encoding.indexOf('gzip') >= 0) {
+          zlib.gunzip(body, (err, dezipped) => {
+            parseError(dezipped);
+          });
+        }
+        else{
+          parseError(body);
+
+        }
+      }
+      else if (response.status === 200) {
+        const parseResponse = jsonText => {
+          const json_string = jsonText.toString('utf-8');
+          var result = JSON.parse(json_string, dateReviver);
+          resolve(result);
+        };
+
+        if (encoding && encoding.indexOf('gzip') >= 0) {
+          zlib.gunzip(body, (err, dezipped) => {
+            parseResponse(dezipped);
+          });
+        }
+        else{
+          parseResponse(body);
+        }
+      }
+      else if(response.status === 204 || response.status === 1223){
+        const uri = response.headers.get("OData-EntityId");
+        if (uri) {
+          // create request - server sends new id
+          const regExp = /\(([^)]+)\)/;
+          const matches = regExp.exec(uri);
+          const newEntityId = matches[1];
+          resolve(newEntityId);
+        }
+        else {
+          // other type of request - no response
+          resolve();
+        }
+      }
+      else{
+        resolve();
+      }
+    });
+  })
+};
+const sendDeleteRequest = async function (query, headers) {
+//  get token
+  const JWToken = await ADALService.acquireToken();
+  const options = {
+    url: `${webApiUrl() + query }`,
+    headers: {
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${JWToken}`,
+      'OData-MaxVersion': '4.0',
+      'OData-Version': '4.0',
+      Accept: 'application/json',
+      Prefer: 'odata.include-annotations="*"',
+      ...headers
+    },
+    encoding: null,
+  };
+
+  return new Promise((resolve, reject) => {
+    request.patch(options, (error, response, body) => {
+      const encoding = response.headers['content-encoding'];
+      if(error || (response.status != 204 && response.status != 1223)){
+        const parseError = jsonText => {
+          const json_string = jsonText.toString('utf-8');
+          const result = JSON.parse(json_string, dateReviver);
+          const err = parseErrorMessage(result);
+          reject(err);
+        };
+        if (encoding && encoding.indexOf('gzip') >= 0) {
+          zlib.gunzip(body, (err, dezipped) => {
+            parseError(dezipped);
+          });
+        }
+        else{
+          parseError(body);
+
+        }
+      }
+      else resolve();
+    })
+  });
+};
+
 const findDocumentLocation = async entityID => {
   const fetchDocumentLocationXML = [
     `<fetch mapping="logical" distinct="true">`,
@@ -160,7 +323,7 @@ const findDocumentLocation = async entityID => {
     `</fetch>`
   ].join('');
 
-  crmWebAPI.get(`sharepointdocumentlocations?fetchXml=${fetchDocumentLocationXML}`)
+  return sendGetRequest(`sharepointdocumentlocations?fetchXml=${fetchDocumentLocationXML}`)
     .then(response => {
       const documentLocations = response.value;
       if (documentLocations.length > 0) {
@@ -170,11 +333,108 @@ const findDocumentLocation = async entityID => {
       }
     })
 };
-const sendFileUploadRequest = async (entityName, entityID, fileName, base64File, overwriteExisting, headers) => {
-  const docLocationID = await findDocumentLocation(entityID);
+const getParentSiteLocation = async () => {
+  const fetchParentSiteLocationIdXML = [
+    `<fetch mapping="logical" distinct="false" top="1">`,
+      `<entity name="sharepointsite">`,
+        `<attribute name="name"/>`,
+        `<attribute name="sitecollectionid"/>`,
+        `<attribute name="isgridpresent"/>`,
+        `<attribute name="absoluteurl"/>`,
+        `<attribute name="isdefault"/>`,
+        `<attribute name="folderstructureentity"/>`,
+        `<filter type="and">`,
+          `<condition attribute="isdefault" operator="eq" value="true"/>`,
+          `<condition attribute="statecode" operator="eq" value="0"/>`,
+        `</filter>`,
+      `</entity>`,
+    `</fetch>`
+  ].join('');
+
+  return sendGetRequest(`sharepointsites?fetchXml=${fetchParentSiteLocationIdXML}`)
+    .then(response => {
+      const parentSiteLocations = response.value;
+      if(parentSiteLocations.length > 0){
+        return parentSiteLocations[0];
+      }
+      else{
+        return null;
+      }
+    })
+};
+const createDocumentLocation = async (documentLocationParams, headers) => {
+
+  //  get token
+  const JWToken = await ADALService.acquireToken();
+
+  const options = {
+    url: `${webApiUrl()}AddOrEditLocation`,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${JWToken}`,
+      ...headers
+    },
+    body: JSON.stringify({
+      "LocationName": "",
+      "AbsUrl": "",
+      "RelativePath": "",
+      "ParentType": "sharepointsite",
+      "ParentId": "",
+      "IsAddOrEditMode": true,
+      "IsCreateFolder": true,
+      "DocumentId": "",
+      "ParentEntityReference": {
+        "@odata.type": "",
+        "dcp_projectid": ""
+      },
+      ...documentLocationParams //  includes values for empty strings in body
+    })
+  };
+
+  return new Promise((resolve, reject) => {
+    request.post(options, (error, response, body) => {
+      if(body){
+        try{
+          const jsonBody = JSON.parse(body);
+          if(jsonBody.error){
+            reject(parseErrorMessage(jsonBody));
+          }
+          else{
+            resolve(jsonBody.LocationId);
+          }
+        }catch(error){
+          reject(body);
+        }
+      }
+      else{
+        reject("Didn't get LocationID");
+      }
+    });
+  });
+
+};
+const sendFileUploadRequest = async (entityName, entityID, folderName, fileName, base64File, overwriteExisting, headers) => {
+  let docLocationID = await findDocumentLocation(entityID);
 
   if(!docLocationID){
     console.log("LocationID not found");
+    const parentSiteLocation = await getParentSiteLocation();
+
+    const absoluteURL = `${parentSiteLocation['absoluteurl']}/${entityName}/${folderName}`;
+
+    const entityRef = {
+      "@odata.type": "Microsoft.Dynamics.CRM." + entityName,
+    };
+    entityRef[entityName+"id"] = entityID;
+
+    const documentLocationDetails = {
+      "LocationName": parentSiteLocation['name'],
+      "AbsUrl": absoluteURL,
+      "RelativePath": folderName,
+      "ParentId": parentSiteLocation['sharepointsiteid'],
+      "ParentEntityReference": entityRef,
+    };
+    docLocationID = await createDocumentLocation(documentLocationDetails, headers);
   }
 
   //  get token
@@ -196,7 +456,7 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
         "Content": base64File,
         "Entity": {
           "@odata.type": "Microsoft.Dynamics.CRM.sharepointdocument",
-          "locationid": docLocationID,  // when undefined, creates new in CRM
+          "locationid": docLocationID,
           "title": fileName
         },
         "OverwriteExisting": overwriteExisting,
@@ -226,168 +486,7 @@ const sendFileUploadRequest = async (entityName, entityID, fileName, base64File,
         });
     });
 };
-const sendPatchRequest = async function (query, data, headers) {
-    //  get token
-    const JWToken = await ADALService.acquireToken();
-    const options = {
-        url: `${webApiUrl() + query }`,
-        headers: {
-            'Accept-Encoding': 'gzip, deflate',
-            'Content-Type': 'application/json; charset=utf-8',
-            Authorization: `Bearer ${JWToken}`,
-            'OData-MaxVersion': '4.0',
-            'OData-Version': '4.0',
-            Accept: 'application/json',
-            Prefer: 'odata.include-annotations="*"',
-            ...headers
-        },
-        body: JSON.stringify(data),
-        encoding: null,
-    };
 
-    return new Promise((resolve, reject) => {
-        request.patch(options, (error, response, body) => {
-          const encoding = response.headers['content-encoding'];
-          if(error || response.statusCode != 204){
-            const parseError = jsonText => {
-              const json_string = jsonText.toString('utf-8');
-              var result = JSON.parse(json_string, dateReviver);
-              var err = parseErrorMessage(result);
-              reject(err);
-            };
-            if (encoding && encoding.indexOf('gzip') >= 0) {
-              zlib.gunzip(body, (err, dezipped) => {
-                parseError(dezipped);
-              });
-            }
-            else{
-              parseError(body);
-
-            }
-          }
-          else resolve();
-        })
-    });
-};
-const sendPostRequest = async function (query, data, headers) {
-    //  get token
-    const JWToken = await ADALService.acquireToken();
-    const options = {
-        url: `${webApiUrl() + query }`,
-        headers: {
-            'Accept-Encoding': 'gzip, deflate',
-            'Content-Type': 'application/json; charset=utf-8',
-            Authorization: `Bearer ${JWToken}`,
-            'OData-MaxVersion': '4.0',
-            'OData-Version': '4.0',
-            Accept: 'application/json',
-            Prefer: 'odata.include-annotations="*"',
-            ...headers
-        },
-        body: JSON.stringify(data),
-        encoding: null,
-    };
-
-    return new Promise((resolve, reject) => {
-        request.post(options, (error, response, body) => {
-            const encoding = response.headers['content-encoding'];
-            if(error || (response.status != 200 && response.status != 204 && response.status != 1223)){
-                const parseError = jsonText => {
-                    // Bug: sometimes CRM returns 'object reference' error
-                    // Fix: if we retry error will not show again
-                    const json_string = jsonText.toString('utf-8');
-                    var result = JSON.parse(json_string, dateReviver);
-                    var err = parseErrorMessage(result);
-                    reject(err);
-                };
-                if (encoding && encoding.indexOf('gzip') >= 0) {
-                    zlib.gunzip(body, (err, dezipped) => {
-                        parseError(dezipped);
-                    });
-                }
-                else{
-                    parseError(body);
-
-                }
-            }
-            else if (response.status === 200) {
-                const parseResponse = jsonText => {
-                    const json_string = jsonText.toString('utf-8');
-                    var result = JSON.parse(json_string, dateReviver);
-                    resolve(result);
-                };
-
-                if (encoding && encoding.indexOf('gzip') >= 0) {
-                    zlib.gunzip(body, (err, dezipped) => {
-                        parseResponse(dezipped);
-                    });
-                }
-                else{
-                    parseResponse(body);
-                }
-            }
-            else if(response.status === 204 || response.status === 1223){
-                const uri = response.headers.get("OData-EntityId");
-                if (uri) {
-                    // create request - server sends new id
-                    const regExp = /\(([^)]+)\)/;
-                    const matches = regExp.exec(uri);
-                    const newEntityId = matches[1];
-                    resolve(newEntityId);
-                }
-                else {
-                    // other type of request - no response
-                    resolve();
-                }
-            }
-            else{
-                resolve();
-            }
-        });
-    })
-};
-const sendDeleteRequest = async function (query, headers) {
-//  get token
-const JWToken = await ADALService.acquireToken();
-const options = {
-    url: `${webApiUrl() + query }`,
-    headers: {
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json; charset=utf-8',
-        Authorization: `Bearer ${JWToken}`,
-        'OData-MaxVersion': '4.0',
-        'OData-Version': '4.0',
-        Accept: 'application/json',
-        Prefer: 'odata.include-annotations="*"',
-      ...headers
-    },
-    encoding: null,
-};
-
-return new Promise((resolve, reject) => {
-    request.patch(options, (error, response, body) => {
-        const encoding = response.headers['content-encoding'];
-        if(error || (response.status != 204 && response.status != 1223)){
-            const parseError = jsonText => {
-                const json_string = jsonText.toString('utf-8');
-                const result = JSON.parse(json_string, dateReviver);
-                const err = parseErrorMessage(result);
-                reject(err);
-            };
-            if (encoding && encoding.indexOf('gzip') >= 0) {
-                zlib.gunzip(body, (err, dezipped) => {
-                    parseError(dezipped);
-                });
-            }
-            else{
-                parseError(body);
-
-            }
-        }
-        else resolve();
-    })
-});
-};
 
 crmWebAPI.get = sendGetRequest;
 crmWebAPI.update = async (entitySetName, guid, data, headers) => {

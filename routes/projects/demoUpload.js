@@ -14,6 +14,8 @@ router.post('/', async (req, res) => {
     try{
         const file = req.files.file;
         const projectID = req.body.projectID;
+        const projectName = req.body.projectName;
+        const entityName = req.body.entityName ? req.body.entityName : 'dcp_project';
         const headers ={
             MSCRMCallerID: 'A5C18075-399F-E911-A99A-001DD8308EF1', //impersonation
         };
@@ -21,7 +23,7 @@ router.post('/', async (req, res) => {
         const decodedFile = decodeURI(file.data);   //  decode from 7bit
         const decodedFileCRLF = eol.crlf(decodedFile);  //  normalize line ending in string to CRLF (WINDOWS, DOS)
         const encodedBase64File = Buffer.from(decodedFileCRLF).toString('base64');      //  encode base64
-        await crmWebAPI.uploadDocument('dcp_project', projectID, file.name ,encodedBase64File,true, headers);
+        await crmWebAPI.uploadDocument(entityName, projectID, projectName, file.name ,encodedBase64File,true, headers);
 
         res.json(
           {
