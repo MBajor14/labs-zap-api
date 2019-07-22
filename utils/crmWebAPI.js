@@ -309,15 +309,16 @@ const sendDeleteRequest = async function (query, headers) {
   });
 };
 
-const findDocumentLocation = async entityID => {
+const findDocumentLocation = async (entityID, folderName) => {
   const fetchDocumentLocationXML = [
-    `<fetch mapping="logical" distinct="true">`,
+    `<fetch mapping="logical" distinct="true" top="1">`,
     `<entity name="sharepointdocumentlocation">`,
     `<attribute name="sharepointdocumentlocationid"/>`,
     `<filter type="and">`,
     `<condition attribute="regardingobjectid" operator="eq" value="{${entityID}}"/>`,
     `<condition attribute="locationtype" operator="eq" value="0"/>`,
     `<condition attribute="servicetype" operator="eq" value="0"/>`,
+    `<condition attribute="relativeurl" operator="eq" value="${folderName}"/>`,
     `</filter>`,
     `</entity>`,
     `</fetch>`
@@ -327,12 +328,39 @@ const findDocumentLocation = async entityID => {
     .then(response => {
       const documentLocations = response.value;
       if (documentLocations.length > 0) {
-        return documentLocations[0].sharepointdocumentlocationid;
+        return documentLocations[0];
       } else {
         return null;
       }
     })
 };
+
+const findEntityDocumentLocation = async (entityName, sharepointSiteID) => {
+  const fetchDocumentLocationXML = [
+    `<fetch mapping="logical" distinct="true" top="1">`,
+    `<entity name="sharepointdocumentlocation">`,
+    `<attribute name="name"/>`,
+    `<filter type="and">`,
+    `<condition attribute="parentsiteorlocation" operator="eq" value="{${sharepointSiteID}}"/>`,
+    `<condition attribute="locationtype" operator="eq" value="0"/>`,
+    `<condition attribute="servicetype" operator="eq" value="0"/>`,
+    `<condition attribute="relativeurl" operator="eq" value="${entityName}"/>`,
+    `</filter>`,
+    `</entity>`,
+    `</fetch>`
+  ].join('');
+
+  return sendGetRequest(`sharepointdocumentlocations?fetchXml=${fetchDocumentLocationXML}`)
+    .then(response => {
+      const documentLocations = response.value;
+      if (documentLocations.length > 0) {
+        return documentLocations[0];
+      } else {
+        return null;
+      }
+    })
+};
+
 const getParentSiteLocation = async () => {
   const fetchParentSiteLocationIdXML = [
     `<fetch mapping="logical" distinct="false" top="1">`,
@@ -410,20 +438,26 @@ const createDocumentLocation = async (locationName, absURL, folderName, sharepoi
 
 };
 const sendFileUploadRequest = async (entityName, entityID, folderName, fileName, base64File, overwriteExisting, headers) => {
-  let docLocationID = await findDocumentLocation(entityID);
+  let docLocation = await findDocumentLocation(entityID, folderName);
+  let docLocationID = null;
 
-  if(!docLocationID){
+  if(!docLocation){
     console.log("LocationID not found");
     const parentSiteLocation = await getParentSiteLocation();
-
+    if(!parentSiteLocation) throw new Error('Sharepoint Site Location not found');
+    const sharepointSiteID = parentSiteLocation['sharepointsiteid'];
+    const entityDocLocation = await findEntityDocumentLocation(entityName, sharepointSiteID);
+    if(!entityDocLocation) throw new Error('Entity Document Location not found');
+    const entityDocName = entityDocLocation.name;
     const absoluteURL = `${parentSiteLocation['absoluteurl']}/${entityName}/${folderName}`;
-
     const entityRef = {
       "@odata.type": "Microsoft.Dynamics.CRM." + entityName,
     };
     entityRef[entityName+"id"] = entityID;
 
-    docLocationID = await createDocumentLocation(parentSiteLocation['name'], absoluteURL, folderName, parentSiteLocation['sharepointsiteid'], entityRef, headers);
+    docLocationID = await createDocumentLocation(entityDocName, absoluteURL, folderName, sharepointSiteID, entityRef, headers);
+  }else{
+    docLocationID = docLocation.sharepointdocumentlocationid;
   }
 
   //  get token
